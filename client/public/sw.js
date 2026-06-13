@@ -2,7 +2,7 @@ const CACHE_NAME = "telecloud-v2";
 const ASSETS = [
   "/",
   "/index.html",
-  "/favicon.svg",
+  "/logo.png",
 ];
 
 self.addEventListener("install", (e) => {

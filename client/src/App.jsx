@@ -39,10 +39,8 @@ function App() {
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center gap-4 bg-[#08090c] text-center select-none">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center border border-white/20 text-white animate-bounce shadow-lg shadow-blue-500/10">
-          <svg className="w-6 h-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-          </svg>
+        <div className="w-12 h-12 rounded-xl glass-panel flex items-center justify-center border border-white/10 animate-bounce shadow-lg shadow-[#C1121F]/10">
+          <img src="/logo.png" alt="Loading" className="w-8 h-8 object-contain" />
         </div>
         <div className="space-y-1">
           <p className="text-sm font-semibold text-white">Initializing TeleCloud...</p>

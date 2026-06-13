@@ -326,11 +326,7 @@ const FolderView = ({ onShareClick, onEditClick, onMediaClick }) => {
               {/* Folder branding capsule - expanded to cover remaining space */}
               <div className="flex-grow glass-panel rounded-full px-5 h-12 flex items-center justify-center gap-3 overflow-hidden">
                 <div className="flex items-center gap-3 max-w-full overflow-hidden">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#C1121F] to-[#780001] flex items-center justify-center border border-white/10 text-white shadow-sm flex-shrink-0">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                  </div>
+                  <img src="/logo.png" alt="TeleCloud" className="w-6 h-6 object-contain flex-shrink-0" />
                   <div className="text-left overflow-hidden">
                     <p className="text-xs font-bold text-white truncate max-w-[150px] md:max-w-[280px]">
                       {getFolderName(activeFolder.title)}
