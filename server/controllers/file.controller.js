@@ -235,16 +235,6 @@ export const getFileThumbnail = async (req, res) => {
   try {
     const { fileId } = req.params;
 
-    const cacheDir = path.join(process.cwd(), "cache", "thumbnails");
-    const cacheFilePath = path.join(cacheDir, `${fileId}.jpg`);
-
-    // Check if cached thumbnail exists
-    if (fs.existsSync(cacheFilePath)) {
-      res.setHeader("Content-Type", "image/jpeg");
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-      return res.send(fs.readFileSync(cacheFilePath));
-    }
-
     const file = await File.findById(fileId);
     if (!file) {
       return res.status(404).json({
@@ -368,6 +358,14 @@ export const getFileThumbnail = async (req, res) => {
             buffer = utils.strippedPhotoToJpg(stripped.bytes);
           }
         }
+      } else {
+        // No thumbnails array at all (e.g. document image with no thumbs)
+        console.log(`No thumbnails array at all for file ${fileId}. Fetching full media as fallback...`);
+        try {
+          buffer = await client.downloadMedia(message.media);
+        } catch (e) {
+          console.error(`Failed to download full media fallback:`, e);
+        }
       }
     }
 
@@ -377,12 +375,6 @@ export const getFileThumbnail = async (req, res) => {
         message: "No thumbnail available for this file type",
       });
     }
-
-    // Save to cache directory
-    if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true });
-    }
-    fs.writeFileSync(cacheFilePath, buffer);
 
     res.setHeader("Content-Type", "image/jpeg");
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
