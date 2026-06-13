@@ -7,10 +7,14 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-
     telegramSession: {
       type: String,
       required: true,
+    },
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
     },
   },
   {

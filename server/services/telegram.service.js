@@ -17,3 +17,27 @@ export const createTelegramClient = (session = "") =>{
         }
     )
 }
+
+const clientCache = new Map();
+
+export const getConnectedTelegramClient = async (userId, session = "") => {
+  const cacheKey = userId.toString();
+  const cached = clientCache.get(cacheKey);
+  
+  if (cached) {
+    try {
+      if (cached.connected) {
+        return cached;
+      }
+      await cached.connect();
+      return cached;
+    } catch (err) {
+      console.log(`Failed to reconnect cached client for user ${userId}, creating new one...`, err);
+    }
+  }
+
+  const client = createTelegramClient(session);
+  await client.connect();
+  clientCache.set(cacheKey, client);
+  return client;
+};

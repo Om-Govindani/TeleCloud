@@ -12,21 +12,15 @@ const client = new TelegramClient(
   {
     connectionRetries: 5,
     useWSS: false,
-  }
+  },
 );
 
 (async () => {
-
   try {
-
     await client.connect();
 
     console.log("CONNECTED");
-
   } catch (err) {
-
     console.log(err);
-
   }
-
 })();

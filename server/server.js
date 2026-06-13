@@ -5,6 +5,9 @@ import cookieParser from "cookie-parser";
 dotenv.config();
 import express from "express";
 import authRoutes from "./routes/auth.routes.js";
+import folderRoutes from "./routes/folder.routes.js";
+import categoryRoutes from "./routes/category.routes.js";
+import fileRoutes from "./routes/file.routes.js";
 
 const app = express();
 
@@ -17,6 +20,9 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use("/api/auth" , authRoutes);
+app.use("/api/folder", folderRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/files", fileRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
 .then(()=>{

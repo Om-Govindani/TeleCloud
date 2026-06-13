@@ -1,0 +1,16 @@
+{
+  "short_name": "TeleCloud",
+  "name": "TeleCloud - Telegram Powered Cloud Storage",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0a0a0c",
+  "theme_color": "#0a0a0c",
+  "display": "standalone",
+  "orientation": "portrait"
+}
