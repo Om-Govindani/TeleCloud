@@ -15,6 +15,7 @@ const allowedOrigins = [
     "http://localhost:5173",
     "https://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://telecloud-api.vercel.app"
 ];
 
 app.use(cors({
@@ -31,18 +32,22 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-app.use("/api/auth" , authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/folder", folderRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/files", fileRoutes);
 
-mongoose.connect(process.env.MONGO_URI)
-.then(()=>{
-    console.log("MongoDB Connected");
-})
-.catch((err)=>{
-    console.log(err);
-});
+if (process.env.MONGO_URI) {
+    mongoose.connect(process.env.MONGO_URI)
+        .then(() => {
+            console.log("MongoDB Connected");
+        })
+        .catch((err) => {
+            console.log(err);
+        });
+} else {
+    console.error("Critical: MONGO_URI environment variable is missing!");
+}
 
 if (process.env.NODE_ENV !== "production") {
     const port = process.env.PORT || 5000;
