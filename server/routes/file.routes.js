@@ -9,10 +9,12 @@ import {
 } from "../controllers/file.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
+import os from "os";
+
 const router = express.Router();
 
-// Multer configuration for temporary file storage
-const upload = multer({ dest: "temp/" });
+// Multer configuration for temporary file storage using OS tmp directory
+const upload = multer({ dest: os.tmpdir() });
 
 router.post("/upload", protect, upload.single("file"), uploadFile);
 router.get("/folder/:folderId", protect, listFiles);
