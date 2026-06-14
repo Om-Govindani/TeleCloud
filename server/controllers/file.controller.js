@@ -285,100 +285,93 @@ export const getFileThumbnail = async (req, res) => {
 
     console.log(`Downloading thumbnail for message ${file.telegramMessageId}...`);
 
-    let thumbOption = undefined;
+    // Diagnostic logging
+    console.log("[Diagnostics] message.media:", JSON.stringify(message.media));
     if (message.media) {
-      if (message.media.photo && message.media.photo.sizes) {
-        const downloadableSizes = message.media.photo.sizes.filter(
-          s => s.className !== 'PhotoSizeEmpty' && s.className !== 'PhotoStrippedSize'
-        );
-        if (downloadableSizes.length > 0) {
-          thumbOption = downloadableSizes.reduce((smallest, current) => {
-            const smallestArea = (smallest.w || 0) * (smallest.h || 0);
-            const currentArea = (current.w || 0) * (current.h || 0);
-            return currentArea < smallestArea ? current : smallest;
-          }, downloadableSizes[0]);
-        } else {
-          // Fallback to stripped size if only stripped is available
-          const stripped = message.media.photo.sizes.find(s => s.className === 'PhotoStrippedSize');
-          if (stripped) {
-            thumbOption = stripped;
-          }
-        }
-      } else if (message.media.document && message.media.document.thumbs) {
-        const downloadableThumbs = message.media.document.thumbs.filter(
-          t => t.className !== 'PhotoSizeEmpty' && t.className !== 'PhotoStrippedSize'
-        );
-        if (downloadableThumbs.length > 0) {
-          thumbOption = downloadableThumbs.reduce((smallest, current) => {
-            const smallestArea = (smallest.w || 0) * (smallest.h || 0);
-            const currentArea = (current.w || 0) * (current.h || 0);
-            return currentArea < smallestArea ? current : smallest;
-          }, downloadableThumbs[0]);
-        } else {
-          const stripped = message.media.document.thumbs.find(t => t.className === 'PhotoStrippedSize');
-          if (stripped) {
-            thumbOption = stripped;
-          }
-        }
+      if (message.media.photo) {
+        console.log("[Diagnostics] message.media.photo.sizes:", JSON.stringify(message.media.photo.sizes));
+      }
+      if (message.media.document) {
+        console.log("[Diagnostics] message.media.document.thumbs:", JSON.stringify(message.media.document.thumbs));
       }
     }
 
-    let buffer;
-    if (thumbOption && thumbOption.className === 'PhotoStrippedSize') {
-      console.log(`Using inline stripped thumbnail for file ${fileId}...`);
-      buffer = utils.strippedPhotoToJpg(thumbOption.bytes);
-    } else if (thumbOption !== undefined) {
+    let allThumbs = [];
+    if (message.media) {
+      if (message.media.photo && message.media.photo.sizes) {
+        allThumbs = message.media.photo.sizes;
+      } else if (message.media.document && message.media.document.thumbs) {
+        allThumbs = message.media.document.thumbs;
+      }
+    }
+
+    const downloadable = allThumbs.filter(
+      t => t.className !== 'PhotoSizeEmpty' && t.className !== 'PhotoStrippedSize'
+    );
+    const stripped = allThumbs.find(t => t.className === 'PhotoStrippedSize');
+
+    let thumbOption = undefined;
+    if (downloadable.length > 0) {
+      thumbOption = downloadable.reduce((smallest, current) => {
+        const smallestArea = (smallest.w || 0) * (smallest.h || 0);
+        const currentArea = (current.w || 0) * (current.h || 0);
+        return currentArea < smallestArea ? current : smallest;
+      }, downloadable[0]);
+    }
+
+    console.log("[Diagnostics] selected thumbOption:", JSON.stringify(thumbOption));
+
+    let buffer = null;
+
+    // 1. Try downloading the selected smallest thumbnail
+    if (thumbOption) {
       try {
-        buffer = await client.downloadMedia(message.media, {
+        console.log(`[Diagnostics] Downloading small thumbnail from Telegram for file ${fileId}...`);
+        buffer = await client.downloadMedia(message, {
           thumb: thumbOption,
         });
       } catch (err) {
-        console.log(`Failed to download specific thumbnail for file ${fileId}, trying fallback...`, err);
+        console.error("[Diagnostics] Failed to download selected thumbnail size:", err);
       }
     }
 
-    // Comprehensive Fallback if buffer is still empty/null
+    // 2. Try falling back to decoding the inline stripped photo if download failed/missing
+    if ((!buffer || buffer.length === 0) && stripped) {
+      try {
+        console.log(`[Diagnostics] Using inline stripped thumbnail fallback for file ${fileId}...`);
+        buffer = utils.strippedPhotoToJpg(stripped.bytes);
+      } catch (err) {
+        console.error("[Diagnostics] Failed decoding inline stripped photo size:", err);
+      }
+    }
+
+    // 3. Try fallback to other downloadable thumbnail sizes if the selected one failed
     if (!buffer || buffer.length === 0) {
-      const allThumbs = (message.media.photo && message.media.photo.sizes) || 
-                         (message.media.document && message.media.document.thumbs) || [];
-      if (allThumbs.length > 0) {
-        const firstDownloadable = allThumbs.find(
-          t => t.className !== 'PhotoSizeEmpty' && t.className !== 'PhotoStrippedSize'
-        );
-        if (firstDownloadable) {
+      for (const candidate of downloadable) {
+        if (candidate !== thumbOption) {
           try {
-            buffer = await client.downloadMedia(message.media, {
-              thumb: firstDownloadable,
+            console.log(`[Diagnostics] Trying fallback thumbnail candidate: ${JSON.stringify(candidate)}`);
+            buffer = await client.downloadMedia(message, {
+              thumb: candidate,
             });
+            if (buffer && buffer.length > 0) break;
           } catch (e) {
-            console.error(`Failed to download first downloadable thumbnail fallback:`, e);
+            console.error("[Diagnostics] Failed fallback download:", e);
           }
-        }
-
-        if (!buffer || buffer.length === 0) {
-          const stripped = allThumbs.find(t => t.className === 'PhotoStrippedSize');
-          if (stripped) {
-            console.log(`Fallback: Using inline stripped thumbnail for file ${fileId}...`);
-            buffer = utils.strippedPhotoToJpg(stripped.bytes);
-          }
-        }
-      } else {
-        // No thumbnails array at all (e.g. document image with no thumbs)
-        console.log(`No thumbnails array at all for file ${fileId}. Fetching full media as fallback...`);
-        try {
-          buffer = await client.downloadMedia(message.media);
-        } catch (e) {
-          console.error(`Failed to download full media fallback:`, e);
         }
       }
     }
 
+    // 4. Return 404 if no thumbnail could be retrieved. Do NOT fall back to downloading full media.
     if (!buffer || buffer.length === 0) {
+      console.log(`[Diagnostics] Thumbnail fetch failed for file ${fileId}. Rejecting with 404.`);
       return res.status(404).json({
         success: false,
-        message: "No thumbnail available for this file type",
+        message: "No thumbnail available for this file",
       });
     }
+
+    console.log(`[Diagnostics] Final thumbnail buffer size: ${buffer.length} bytes`);
 
     res.setHeader("Content-Type", "image/jpeg");
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
