@@ -239,8 +239,12 @@ const FolderView = ({ onShareClick, onEditClick, onMediaClick }) => {
     }
   };
 
-  const isImage = (file) => file.mimeType?.startsWith("image/");
-  const isVideo = (file) => file.mimeType?.startsWith("video/");
+  const isImage = (file) => 
+    file.mimeType?.startsWith("image/") || 
+    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.fileName);
+  const isVideo = (file) => 
+    file.mimeType?.startsWith("video/") || 
+    /\.(mp4|mov|avi|mkv|webm)$/i.test(file.fileName);
   const isPdf = (file) => file.fileName?.endsWith(".pdf");
   const isZip = (file) =>
     file.fileName?.endsWith(".zip") ||

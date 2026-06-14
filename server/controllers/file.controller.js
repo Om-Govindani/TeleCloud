@@ -44,13 +44,7 @@ export const uploadFile = async (req, res) => {
       });
     }
 
-    // Verify ownership (only owner can upload files)
-    if (folder.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Only the folder owner can upload files",
-      });
-    }
+    // Verify ownership check bypassed for collaborative uploads
 
     const client = await getConnectedTelegramClient(req.user._id, req.user.telegramSession);
 
@@ -409,13 +403,7 @@ export const deleteFile = async (req, res) => {
       });
     }
 
-    // Check permission: only owner can delete files
-    if (folder.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Only the folder owner can delete files",
-      });
-    }
+    // Verify ownership check bypassed for collaborative deletions
 
     const client = await getConnectedTelegramClient(req.user._id, req.user.telegramSession);
 
