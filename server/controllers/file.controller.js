@@ -27,6 +27,16 @@ export const uploadFile = async (req, res) => {
     }
 
     tempFilePath = req.file.path;
+    
+    // Rename temp file to include original extension so GramJS can infer the MIME type
+    // and Telegram's servers will automatically generate small media thumbnails.
+    const originalExt = path.extname(req.file.originalname);
+    if (originalExt) {
+      const newTempFilePath = tempFilePath + originalExt;
+      fs.renameSync(tempFilePath, newTempFilePath);
+      tempFilePath = newTempFilePath;
+    }
+
     const { folderId } = req.body;
 
     if (!folderId) {
@@ -426,6 +436,42 @@ export const deleteFile = async (req, res) => {
     });
   } catch (err) {
     console.error("File deletion error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// GET STORAGE USAGE STATS
+export const getStorageStats = async (req, res) => {
+  try {
+    const myFolders = await Folder.find({ owner: req.user._id }).select("_id");
+    const myFolderIds = myFolders.map((f) => f._id);
+
+    const stats = await File.aggregate([
+      { $match: { folder: { $in: myFolderIds } } },
+      {
+        $group: {
+          _id: null,
+          totalSize: { $sum: "$size" },
+          totalFiles: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const totalFolders = myFolders.length;
+    const totalSize = stats[0]?.totalSize || 0;
+    const totalFiles = stats[0]?.totalFiles || 0;
+
+    return res.status(200).json({
+      success: true,
+      totalSize,
+      totalFiles,
+      totalFolders,
+    });
+  } catch (err) {
+    console.error("Storage stats error:", err);
     return res.status(500).json({
       success: false,
       message: err.message,

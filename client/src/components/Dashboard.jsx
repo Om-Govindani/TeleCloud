@@ -1,6 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 
+const formatBytes = (bytes, decimals = 1) => {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+};
+
 const Dashboard = ({ 
   onCreateFolderClick, 
   onCreateCategoryClick, 
@@ -20,6 +29,7 @@ const Dashboard = ({
     progressState,
     isOffline,
     activeFolder,
+    storageStats,
   } = useApp();
 
   const handleFolderClick = (folder) => {
@@ -366,6 +376,36 @@ const Dashboard = ({
             <div className="space-y-1">
               <p className="text-sm font-bold text-white">{user?.phone || "TeleCloud User"}</p>
               <p className="text-[10px] text-gray-400 tracking-wide font-medium">JWT SECURE PHONE SESSION</p>
+            </div>
+
+            {/* Storage Usage Stats Card */}
+            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-left space-y-3">
+              <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-wider">
+                <span>Storage Usage</span>
+                <span className="text-emerald-400 font-extrabold tracking-wider">Unlimited</span>
+              </div>
+              
+              <div className="relative w-full h-2 rounded-full bg-white/5 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-[#C1121F] to-[#780001] rounded-full" 
+                  style={{ width: storageStats?.totalSize > 0 ? "35%" : "2%" }}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5 text-center">
+                <div>
+                  <p className="text-[9px] text-gray-500 font-extrabold uppercase">Used</p>
+                  <p className="text-xs font-black text-white mt-0.5">{formatBytes(storageStats?.totalSize || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-gray-500 font-extrabold uppercase">Files</p>
+                  <p className="text-xs font-black text-white mt-0.5">{storageStats?.totalFiles || 0}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-gray-500 font-extrabold uppercase">Folders</p>
+                  <p className="text-xs font-black text-white mt-0.5">{storageStats?.totalFolders || 0}</p>
+                </div>
+              </div>
             </div>
 
             <button

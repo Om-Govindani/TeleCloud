@@ -6,6 +6,7 @@ import {
   downloadFile,
   getFileThumbnail,
   deleteFile,
+  getStorageStats,
 } from "../controllers/file.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
@@ -16,6 +17,7 @@ const router = express.Router();
 // Multer configuration for temporary file storage using OS tmp directory
 const upload = multer({ dest: os.tmpdir() });
 
+router.get("/storage/stats", protect, getStorageStats);
 router.post("/upload", protect, upload.single("file"), uploadFile);
 router.get("/folder/:folderId", protect, listFiles);
 router.get("/:fileId/download", protect, downloadFile);

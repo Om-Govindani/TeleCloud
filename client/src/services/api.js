@@ -91,6 +91,10 @@ export const api = {
 
   // Files
   files: {
+    getStorageStats: async () => {
+      const response = await fetch("/api/files/storage/stats");
+      return handleResponse(response);
+    },
     list: async (folderId) => {
       const response = await fetch(`/api/files/folder/${folderId}`);
       return handleResponse(response);

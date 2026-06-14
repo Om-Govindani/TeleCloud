@@ -11,8 +11,9 @@ export const AppProvider = ({ children }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFolder, setActiveFolder] = useState(null);
   const [activeFiles, setActiveFiles] = useState([]);
-  const [isFolderLoading, setIsFolderLoading] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isFolderLoading, setIsFolderLoading] = useState(false);
+  const [storageStats, setStorageStats] = useState({ totalSize: 0, totalFiles: 0, totalFolders: 0 });
   
   // Floating status bar state (Taylor Swift Music Player style indicator)
   const [progressState, setProgressState] = useState({
@@ -29,6 +30,21 @@ export const AppProvider = ({ children }) => {
     setTimeout(() => {
       setToast((prev) => ({ ...prev, show: false }));
     }, 3500);
+  };
+
+  const fetchStorageStats = async () => {
+    try {
+      const data = await api.files.getStorageStats();
+      if (data.success) {
+        setStorageStats({
+          totalSize: data.totalSize,
+          totalFiles: data.totalFiles,
+          totalFolders: data.totalFolders,
+        });
+      }
+    } catch (err) {
+      console.error("Fetch storage stats failed:", err);
+    }
   };
 
   // Monitor online status
@@ -61,6 +77,7 @@ export const AppProvider = ({ children }) => {
           // Trigger data pre-fetch
           fetchFolders();
           fetchCategories();
+          fetchStorageStats();
         }
       } catch (err) {
         console.error("Session restore failed:", err);
@@ -76,6 +93,7 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem("telecloud_user", JSON.stringify(userData));
     fetchFolders();
     fetchCategories();
+    fetchStorageStats();
   };
 
   const logoutUser = () => {
@@ -122,6 +140,7 @@ export const AppProvider = ({ children }) => {
       if (data.success) {
         showToast("Folder created successfully!");
         fetchFolders();
+        fetchStorageStats();
         return { success: true, folder: data.folder };
       }
     } catch (err) {
@@ -136,6 +155,7 @@ export const AppProvider = ({ children }) => {
       if (data.success) {
         showToast("Folder deleted successfully!");
         fetchFolders();
+        fetchStorageStats();
         if (activeFolder && activeFolder._id === folderId) {
           setActiveFolder(null);
           setActiveFiles([]);
@@ -314,6 +334,7 @@ export const AppProvider = ({ children }) => {
 
         // Trigger updating the sidebar/folders list metadata
         fetchFolders();
+        fetchStorageStats();
       }
     } catch (err) {
       console.error("Refresh files failed:", err);
@@ -342,6 +363,7 @@ export const AppProvider = ({ children }) => {
       if (data.success) {
         showToast(`Uploaded ${file.name} successfully!`);
         await refreshActiveFolderFiles();
+        fetchStorageStats();
       }
     } catch (err) {
       showToast(err.message || `Failed to upload ${file.name}`, "error");
@@ -380,6 +402,8 @@ export const AppProvider = ({ children }) => {
         selectFolder,
         refreshActiveFolderFiles,
         uploadFile,
+        storageStats,
+        fetchStorageStats,
       }}
     >
       {children}
