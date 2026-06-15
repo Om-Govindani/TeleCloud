@@ -8,7 +8,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://telecloud-api.vercel.app',
+        // target: 'https://telecloud-api.vercel.app',
+        //target: 'http://localhost:5000',
+        target: 'https://telecloud-production-ab69.up.railway.app',
         changeOrigin: true,
         credentials: true
       }
