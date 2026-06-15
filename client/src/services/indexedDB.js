@@ -166,3 +166,49 @@ export const clearAllCache = async () => {
     return false;
   }
 };
+
+export const getDatabaseStats = async () => {
+  try {
+    const db = await initDB();
+    
+    const getStoreStats = (storeName) => {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, "readonly");
+        const store = transaction.objectStore(storeName);
+        const request = store.openCursor();
+        let size = 0;
+        let count = 0;
+        
+        request.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            const record = cursor.value;
+            count++;
+            if (storeName === THUMBNAILS_STORE && record.dataUrl) {
+              size += record.dataUrl.length;
+            } else if (storeName === FULL_IMAGES_STORE && record.blob) {
+              size += record.blob.size;
+            }
+            cursor.continue();
+          } else {
+            resolve({ size, count });
+          }
+        };
+        
+        request.onerror = () => reject(request.error);
+      });
+    };
+    
+    const thumbs = await getStoreStats(THUMBNAILS_STORE);
+    const fulls = await getStoreStats(FULL_IMAGES_STORE);
+    
+    return {
+      totalSize: thumbs.size + fulls.size,
+      thumbnailsCount: thumbs.count,
+      fullImagesCount: fulls.count,
+    };
+  } catch (err) {
+    console.error("IndexedDB getDatabaseStats error:", err);
+    return { totalSize: 0, thumbnailsCount: 0, fullImagesCount: 0 };
+  }
+};

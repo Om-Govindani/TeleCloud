@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp } from "../../context/AppContext";
-import { clearAllCache } from "../../services/indexedDB";
+import { clearAllCache, getDatabaseStats } from "../../services/indexedDB";
 
 const formatBytes = (bytes, decimals = 1) => {
   if (bytes === 0) return "0 B";
@@ -16,8 +16,22 @@ const SettingsTab = ({
   desktopRightView,
   setDesktopRightView
 }) => {
-  const { user, storageStats, logoutUser, showToast } = useApp();
+  const { user, logoutUser, showToast } = useApp();
   const [isClearing, setIsClearing] = useState(false);
+  const [dbStats, setDbStats] = useState({ totalSize: 0, thumbnailsCount: 0, fullImagesCount: 0 });
+
+  const fetchDbStats = async () => {
+    try {
+      const stats = await getDatabaseStats();
+      setDbStats(stats);
+    } catch (err) {
+      console.error("Failed to load IndexedDB stats:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDbStats();
+  }, []);
 
   const handleClearCache = async () => {
     setIsClearing(true);
@@ -25,6 +39,7 @@ const SettingsTab = ({
       const success = await clearAllCache();
       if (success) {
         showToast("Local cache cleared successfully!", "success");
+        await fetchDbStats();
       } else {
         showToast("Failed to clear local cache.", "error");
       }
@@ -51,32 +66,32 @@ const SettingsTab = ({
           <p className="text-[10px] text-gray-400 tracking-wide font-medium">JWT SECURE PHONE SESSION</p>
         </div>
 
-        {/* Storage Usage Stats Card */}
+        {/* Local Storage Cache Card */}
         <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-left space-y-3">
           <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-wider">
-            <span>Storage Usage</span>
-            <span className="text-emerald-400 font-extrabold tracking-wider">Unlimited</span>
+            <span>Cache Footprint</span>
+            <span className="text-[#C1121F] font-extrabold tracking-wider">IndexedDB</span>
           </div>
           
           <div className="relative w-full h-2 rounded-full bg-white/5 overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-[#C1121F] to-[#780001] rounded-full" 
-              style={{ width: storageStats?.totalSize > 0 ? "35%" : "2%" }}
+              className="h-full bg-gradient-to-r from-[#C1121F] to-[#780001] rounded-full transition-all duration-300" 
+              style={{ width: `${Math.min(100, Math.max(2, (dbStats.totalSize / (50 * 1024 * 1024)) * 100))}%` }}
             />
           </div>
 
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5 text-center">
             <div>
-              <p className="text-[9px] text-gray-500 font-extrabold uppercase">Used</p>
-              <p className="text-xs font-black text-white mt-0.5">{formatBytes(storageStats?.totalSize || 0)}</p>
+              <p className="text-[9px] text-gray-500 font-extrabold uppercase">Cache Size</p>
+              <p className="text-xs font-black text-white mt-0.5">{formatBytes(dbStats.totalSize)}</p>
             </div>
             <div>
-              <p className="text-[9px] text-gray-500 font-extrabold uppercase">Files</p>
-              <p className="text-xs font-black text-white mt-0.5">{storageStats?.totalFiles || 0}</p>
+              <p className="text-[9px] text-gray-500 font-extrabold uppercase">Thumbnails</p>
+              <p className="text-xs font-black text-white mt-0.5">{dbStats.thumbnailsCount}</p>
             </div>
             <div>
-              <p className="text-[9px] text-gray-500 font-extrabold uppercase">Folders</p>
-              <p className="text-xs font-black text-white mt-0.5">{storageStats?.totalFolders || 0}</p>
+              <p className="text-[9px] text-gray-500 font-extrabold uppercase">Originals</p>
+              <p className="text-xs font-black text-white mt-0.5">{dbStats.fullImagesCount}</p>
             </div>
           </div>
         </div>
