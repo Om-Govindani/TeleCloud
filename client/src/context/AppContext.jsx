@@ -15,6 +15,7 @@ export const AppProvider = ({ children }) => {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [isFolderLoading, setIsFolderLoading] = useState(false);
   const [storageStats, setStorageStats] = useState({ totalSize: 0, totalFiles: 0, totalFolders: 0 });
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
   
   // Floating status bar state (Taylor Swift Music Player style indicator)
   const [progressState, setProgressState] = useState({
@@ -67,6 +68,31 @@ export const AppProvider = ({ children }) => {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    const handlePrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      console.log("Captured beforeinstallprompt event");
+    };
+    window.addEventListener("beforeinstallprompt", handlePrompt);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handlePrompt);
+    };
+  }, []);
+
+  const installPWA = async () => {
+    if (!deferredPrompt) {
+      showToast("App is already installed or browser is not supported.", "error");
+      return;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      showToast("Installing TeleCloud!");
+    }
+    setDeferredPrompt(null);
+  };
 
   // Check login session on mount
   useEffect(() => {
@@ -425,6 +451,8 @@ export const AppProvider = ({ children }) => {
         uploadFile,
         storageStats,
         fetchStorageStats,
+        deferredPrompt,
+        installPWA,
       }}
     >
       {children}
