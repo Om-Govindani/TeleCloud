@@ -1,7 +1,7 @@
 import { Api, utils } from "telegram";
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
+import { Jimp } from "jimp";
 import File from "../models/File.js";
 import Folder from "../models/Folder.js";
 import { createTelegramClient, getConnectedTelegramClient } from "../services/telegram.service.js";
@@ -68,18 +68,27 @@ export const uploadFile = async (req, res) => {
       try {
         const thumbName = `${path.basename(tempFilePath, path.extname(tempFilePath))}_thumb.jpg`;
         thumbPath = path.join(path.dirname(tempFilePath), thumbName);
-        console.log(`Generating thumbnail using sharp for image upload: ${thumbPath}`);
+        console.log(`Generating thumbnail using Jimp for image upload: ${thumbPath}`);
         
-        await sharp(tempFilePath)
-          .resize(320, 320, { fit: "inside", withoutEnlargement: true })
-          .jpeg({ quality: 80 })
-          .toFile(thumbPath);
+        const image = await Jimp.read(tempFilePath);
+        const width = image.bitmap.width;
+        const height = image.bitmap.height;
+        if (width > 320 || height > 320) {
+          if (width > height) {
+            image.resize({ w: 320, h: Jimp.AUTO });
+          } else {
+            image.resize({ w: Jimp.AUTO, h: 320 });
+          }
+        }
+        
+        const buffer = await image.getBuffer("image/jpeg", { quality: 80 });
+        await fs.promises.writeFile(thumbPath, buffer);
 
         const thumbStats = fs.statSync(thumbPath);
         console.log(`Generated thumbnail size: ${thumbStats.size} bytes`);
-      } catch (sharpErr) {
-        console.error("Failed to generate image thumbnail with sharp:", sharpErr);
-        thumbPath = null; // reset to upload without thumbnail if sharp fails
+      } catch (jimpErr) {
+        console.error("Failed to generate image thumbnail with Jimp:", jimpErr);
+        thumbPath = null; // reset to upload without thumbnail if Jimp fails
       }
     }
 
