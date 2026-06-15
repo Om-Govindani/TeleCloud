@@ -1,6 +1,7 @@
 import { Api, utils } from "telegram";
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
 import File from "../models/File.js";
 import Folder from "../models/Folder.js";
 import { createTelegramClient, getConnectedTelegramClient } from "../services/telegram.service.js";
@@ -18,6 +19,7 @@ const getChannelPeer = async (client, channelId) => {
 // UPLOAD FILE
 export const uploadFile = async (req, res) => {
   let tempFilePath = null;
+  let thumbPath = null;
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -60,12 +62,34 @@ export const uploadFile = async (req, res) => {
 
     const channelPeer = await getChannelPeer(client, folder.channelId);
 
+    // Generate thumbnail if file is an image
+    const isImage = req.file.mimetype && req.file.mimetype.startsWith("image/");
+    if (isImage) {
+      try {
+        const thumbName = `${path.basename(tempFilePath, path.extname(tempFilePath))}_thumb.jpg`;
+        thumbPath = path.join(path.dirname(tempFilePath), thumbName);
+        console.log(`Generating thumbnail using sharp for image upload: ${thumbPath}`);
+        
+        await sharp(tempFilePath)
+          .resize(320, 320, { fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 80 })
+          .toFile(thumbPath);
+
+        const thumbStats = fs.statSync(thumbPath);
+        console.log(`Generated thumbnail size: ${thumbStats.size} bytes`);
+      } catch (sharpErr) {
+        console.error("Failed to generate image thumbnail with sharp:", sharpErr);
+        thumbPath = null; // reset to upload without thumbnail if sharp fails
+      }
+    }
+
     console.log(`Uploading file ${req.file.originalname} to Telegram channel...`);
 
     // Upload to Telegram channel
     const message = await client.sendFile(channelPeer, {
       file: tempFilePath,
       forceDocument: true, // upload as document to preserve quality and name
+      thumb: thumbPath || undefined,
       attributes: [
         new Api.DocumentAttributeFilename({
           fileName: req.file.originalname,
@@ -116,6 +140,15 @@ export const uploadFile = async (req, res) => {
         console.log(`Cleaned up temporary file: ${tempFilePath}`);
       } catch (cleanupErr) {
         console.error("Failed to clean up temp file:", cleanupErr);
+      }
+    }
+    // Clean up temporary thumbnail file
+    if (thumbPath && fs.existsSync(thumbPath)) {
+      try {
+        await fs.promises.unlink(thumbPath);
+        console.log(`Cleaned up temporary thumbnail file: ${thumbPath}`);
+      } catch (cleanupErr) {
+        console.error("Failed to clean up temp thumbnail file:", cleanupErr);
       }
     }
   }

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { api } from "../services/api";
+import { getThumbnail, saveThumbnail, cleanExpiredFullImages } from "../services/indexedDB";
 
 const AppContext = createContext();
 
@@ -71,6 +72,9 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     const initSession = async () => {
       try {
+        // Run IndexedDB expired image cleanup
+        cleanExpiredFullImages().catch(err => console.error("Failed to clean expired full images:", err));
+
         const storedUser = localStorage.getItem("telecloud_user");
         if (storedUser) {
           setUser(JSON.parse(storedUser));
@@ -182,15 +186,33 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const cacheThumbnailsForFiles = async (files, cachedFiles = []) => {
-    const cacheMap = new Map(cachedFiles.map(f => [f._id, f.thumbnailDataUrl]));
+  const loadThumbnailsFromIndexedDBAndSet = async (files) => {
+    const promises = files.map(async (file) => {
+      const isMedia = file.mimeType?.startsWith("image/") || file.mimeType?.startsWith("video/");
+      if (isMedia) {
+        const thumbnailDataUrl = await getThumbnail(file._id);
+        if (thumbnailDataUrl) {
+          return { ...file, thumbnailDataUrl };
+        }
+      }
+      return file;
+    });
+    const updated = await Promise.all(promises);
+    setActiveFiles(updated);
+  };
+
+  const cacheThumbnailsForFiles = async (files) => {
     let hasNewCache = false;
 
     const promises = files.map(async (file) => {
       const isMedia = file.mimeType?.startsWith("image/") || file.mimeType?.startsWith("video/");
-      let thumbnailDataUrl = cacheMap.get(file._id);
+      if (!isMedia) {
+        return file;
+      }
 
-      if (isMedia && !thumbnailDataUrl) {
+      let thumbnailDataUrl = await getThumbnail(file._id);
+
+      if (!thumbnailDataUrl) {
         try {
           const response = await fetch(api.files.thumbnailUrl(file._id));
           if (response.ok) {
@@ -202,6 +224,7 @@ export const AppProvider = ({ children }) => {
               reader.readAsDataURL(blob);
             });
             if (thumbnailDataUrl) {
+              await saveThumbnail(file._id, thumbnailDataUrl);
               hasNewCache = true;
             }
           }
@@ -227,7 +250,7 @@ export const AppProvider = ({ children }) => {
         const freshFiles = data.files || [];
         
         // Cache thumbnails for fresh files in background
-        const { updatedFiles, hasNewCache } = await cacheThumbnailsForFiles(freshFiles, cachedFiles);
+        const { updatedFiles, hasNewCache } = await cacheThumbnailsForFiles(freshFiles);
         
         // Update state and localStorage if list length changed, new file uploaded/deleted, or new thumbnails cached
         const isListChanged = 
@@ -238,9 +261,12 @@ export const AppProvider = ({ children }) => {
         if (isListChanged || !cachedFiles.length) {
           console.log(`Cache updated for folder ${folderId}`);
           setActiveFiles(updatedFiles);
+          
+          // Strip thumbnailDataUrl before writing to localStorage to keep metadata tiny
+          const filesToStore = updatedFiles.map(({ thumbnailDataUrl, ...rest }) => rest);
           const cacheEntry = {
             lastFileId,
-            files: updatedFiles,
+            files: filesToStore,
           };
           localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
         }
@@ -275,6 +301,9 @@ export const AppProvider = ({ children }) => {
       setActiveFiles(cachedData.files);
       setIsFolderLoading(false);
       
+      // Load thumbnails from IndexedDB and set them asynchronously
+      loadThumbnailsFromIndexedDBAndSet(cachedData.files);
+      
       // Quietly fetch updates and new thumbnails in background
       fetchActiveFilesAndCacheSilently(folder._id, cacheKey, currentLastFileId, cachedData.files);
       return;
@@ -308,27 +337,19 @@ export const AppProvider = ({ children }) => {
       if (data.success) {
         const freshFiles = data.files || [];
         
-        // Update cache on manual/active refresh
-        const cacheKey = `telecloud_cache_files_${activeFolder._id}`;
-        let cachedFiles = [];
-        try {
-          const stored = localStorage.getItem(cacheKey);
-          if (stored) {
-            cachedFiles = JSON.parse(stored).files || [];
-          }
-        } catch (e) {}
-
         // Set immediate files list
         setActiveFiles(freshFiles);
 
         // Update thumbnails in background and write to localStorage
-        const { updatedFiles } = await cacheThumbnailsForFiles(freshFiles, cachedFiles);
+        const { updatedFiles } = await cacheThumbnailsForFiles(freshFiles);
         setActiveFiles(updatedFiles);
 
         const currentLastFileId = updatedFiles[0] ? updatedFiles[0]._id : null;
+        // Strip thumbnailDataUrl before writing to localStorage
+        const filesToStore = updatedFiles.map(({ thumbnailDataUrl, ...rest }) => rest);
         const cacheEntry = {
           lastFileId: currentLastFileId,
-          files: updatedFiles,
+          files: filesToStore,
         };
         localStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
 

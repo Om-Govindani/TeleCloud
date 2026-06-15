@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { api } from "../services/api";
+import { getFullImage, saveFullImage } from "../services/indexedDB";
 
 const MediaViewer = ({ file, files, onClose }) => {
   const [currentFile, setCurrentFile] = useState(file);
@@ -10,11 +11,69 @@ const MediaViewer = ({ file, files, onClose }) => {
 
   const currentIndex = files.findIndex((f) => f._id === currentFile._id);
 
+  const [imageUrl, setImageUrl] = useState("");
+
   // Reset zoom on file change
   useEffect(() => {
     setZoomLevel(1);
     setIsImageLoading(true);
   }, [currentFile]);
+
+  const isImage = currentFile.mimeType?.startsWith("image/");
+
+  useEffect(() => {
+    let active = true;
+    let localUrl = "";
+
+    const loadImage = async () => {
+      if (!isImage || !currentFile) return;
+      setIsImageLoading(true);
+
+      try {
+        // 1. Try to get the image from IndexedDB
+        const cached = await getFullImage(currentFile._id);
+        if (cached && active) {
+          console.log(`Loading image ${currentFile._id} from IndexedDB cache`);
+          localUrl = URL.createObjectURL(cached.blob);
+          setImageUrl(localUrl);
+          setIsImageLoading(false);
+          return;
+        }
+
+        // 2. Fetch from network
+        console.log(`Fetching image ${currentFile._id} from network`);
+        const url = api.files.downloadUrl(currentFile._id);
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Failed to fetch image");
+        
+        const blob = await response.blob();
+        if (active) {
+          localUrl = URL.createObjectURL(blob);
+          setImageUrl(localUrl);
+          setIsImageLoading(false);
+        }
+
+        // Save to IndexedDB in background
+        await saveFullImage(currentFile._id, blob, currentFile.mimeType || "image/jpeg");
+      } catch (err) {
+        console.error("Error loading full image:", err);
+        if (active) {
+          // Fallback directly to backend download URL if something fails
+          setImageUrl(api.files.downloadUrl(currentFile._id));
+          setIsImageLoading(false);
+        }
+      }
+    };
+
+    loadImage();
+
+    return () => {
+      active = false;
+      if (localUrl) {
+        URL.revokeObjectURL(localUrl);
+      }
+    };
+  }, [currentFile, isImage]);
 
   if (!currentFile) return null;
 
@@ -62,7 +121,6 @@ const MediaViewer = ({ file, files, onClose }) => {
     }
   };
 
-  const isImage = currentFile.mimeType?.startsWith("image/");
   const isVideo = currentFile.mimeType?.startsWith("video/");
   const isPdf = currentFile.fileName?.endsWith(".pdf");
   const isZip =
@@ -123,7 +181,7 @@ const MediaViewer = ({ file, files, onClose }) => {
               </div>
             )}
             <img
-              src={api.files.downloadUrl(currentFile._id)}
+              src={imageUrl || api.files.downloadUrl(currentFile._id)}
               alt={currentFile.fileName}
               onDoubleClick={handleDoubleTap}
               onLoad={() => setIsImageLoading(false)}
