@@ -107,7 +107,11 @@ export const api = {
       // Using standard XMLHttpRequest for progress tracking
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/files/upload");
+        const url = import.meta.env.PROD
+          ? "https://telecloud-production-ab69.up.railway.app/api/files/upload"
+          : "/api/files/upload";
+        xhr.open("POST", url);
+        xhr.withCredentials = true; // Send cookies cross-origin
 
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable && onProgress) {
