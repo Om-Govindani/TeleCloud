@@ -139,3 +139,30 @@ export const cleanExpiredFullImages = async () => {
     console.error("IndexedDB cleanup error:", err);
   }
 };
+
+export const clearAllCache = async () => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([THUMBNAILS_STORE, FULL_IMAGES_STORE], "readwrite");
+      const thumbsStore = transaction.objectStore(THUMBNAILS_STORE);
+      const fullStore = transaction.objectStore(FULL_IMAGES_STORE);
+      
+      const clearThumbs = thumbsStore.clear();
+      const clearFull = fullStore.clear();
+      
+      transaction.oncomplete = () => {
+        console.log("IndexedDB cache cleared successfully.");
+        resolve(true);
+      };
+      
+      transaction.onerror = (event) => {
+        console.error("IndexedDB clear error:", event.target.error);
+        reject(event.target.error);
+      };
+    });
+  } catch (err) {
+    console.error("IndexedDB clearAllCache error:", err);
+    return false;
+  }
+};

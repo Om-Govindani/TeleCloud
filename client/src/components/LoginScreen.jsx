@@ -85,7 +85,7 @@ const LoginScreen = () => {
       </div>
 
       {/* Main Glass Card */}
-      <div className="glass-panel w-full max-w-sm rounded-3xl p-8 flex flex-col gap-6 animate-fade-in-up">
+      <div className="glass-panel w-full max-w-sm rounded-3xl p-6 sm:p-8 flex flex-col gap-6 animate-fade-in-up">
         {/* Header */}
         <div className="text-center space-y-2">
           <h2 className="text-3xl font-bold bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
@@ -130,7 +130,7 @@ const LoginScreen = () => {
                 value={rawPhone}
                 onChange={(e) => setRawPhone(e.target.value)}
                 disabled={isSendingOtp}
-                className="flex-grow px-4 py-3.5 rounded-xl glass-input text-sm tracking-wider placeholder:text-gray-500 font-semibold"
+                className="flex-grow min-w-0 px-4 py-3.5 rounded-xl glass-input text-sm tracking-wider placeholder:text-gray-500 font-semibold"
                 required
               />
             </div>
