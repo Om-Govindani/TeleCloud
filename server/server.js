@@ -49,7 +49,7 @@ if (process.env.MONGO_URI) {
     console.error("Critical: MONGO_URI environment variable is missing!");
 }
 
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
     const port = process.env.PORT || 5000;
     app.listen(port, () => {
         console.log(`Server running on port ${port}`);
